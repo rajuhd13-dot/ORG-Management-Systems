@@ -28,6 +28,8 @@ const ALL_BRANCHES = [
 ];
 
 export default function ScriptEvaluationEntry() {
+  const [showAddForm, setShowAddForm] = useState(false);
+
   const [formData, setFormData] = useState({
     organization: '--All--',
     program: '--All--',
@@ -44,6 +46,22 @@ export default function ScriptEvaluationEntry() {
     keyword: '',
     rows: '100'
   });
+
+  const [addFormData, setAddFormData] = useState({
+    organization: '--Select Organization--',
+    program: '--Select Program--',
+    session: '--Select Session--',
+    course: '--Select Course--',
+    exam: '',
+    scriptQuestionType: '--Select Script Question Type--',
+    evaluationType: '--Select Evaluation Type--',
+    scriptVersion: '--Select Script Version--',
+    evaluationDate: '2026-04-25',
+    teacher: '',
+    subject: '-- Select Subject --'
+  });
+
+  const [branchesData, setBranchesData] = useState([{ branch: '--Select Branch--', scriptQuantity: '', remaining: '' }]);
 
   const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
   const [branchSearch, setBranchSearch] = useState('');
@@ -103,6 +121,12 @@ export default function ScriptEvaluationEntry() {
   };
 
   const EXAMS_BY_PROGRAM: Record<string, string[]> = {
+    "HSC Model Test": [
+      "[101] Bangla 1st Paper CQ and MCQ Exam-01",
+      "[102] English 1st Paper Exam-01",
+      "[103] Physics 1st Paper CQ and MCQ Exam-01",
+      "[104] Chemistry 1st Paper CQ and MCQ Exam-01"
+    ],
     "Cadet College Vorti Prostuti (Online)": [
       "[424] Cadet Standard Weekly Exam-01",
       "[431] Cadet Standard Weekly Exam-08",
@@ -125,12 +149,23 @@ export default function ScriptEvaluationEntry() {
     ]
   };
 
-  const getCourses = () => {
-    return formData.program && formData.program !== '--All--' ? COURSES_BY_PROGRAM[formData.program] || [] : [];
+  const getSubjectFromExam = (examName: string) => {
+    if (!examName || examName === '--Select Exam--' || examName === '--All--') return '';
+    const match = examName.match(/\] (.+?)(?: CQ and MCQ| MCQ and Written| Written| CQ| Exam| Model|-|$)/i);
+    return match ? match[1].trim() : '';
   };
 
-  const getExams = () => {
-    return formData.program && formData.program !== '--All--' ? (EXAMS_BY_PROGRAM[formData.program] || EXAMS_BY_PROGRAM["DEFAULT"]) : [];
+  const getCourses = (prog: string) => {
+    return prog && prog !== '--All--' && prog !== '--Select Program--' ? COURSES_BY_PROGRAM[prog] || [] : [];
+  };
+
+  const getExams = (prog: string) => {
+    if (prog && prog !== '--All--' && prog !== '--Select Program--') {
+      return EXAMS_BY_PROGRAM[prog] || EXAMS_BY_PROGRAM["DEFAULT"];
+    }
+    // Return all unique exam codes
+    const allExams = Object.values(EXAMS_BY_PROGRAM).flat();
+    return Array.from(new Set(allExams));
   };
 
   const filteredBranches = ALL_BRANCHES.filter(b => b.toLowerCase().includes(branchSearch.toLowerCase()));
@@ -156,7 +191,7 @@ export default function ScriptEvaluationEntry() {
     return `${formData.branch.length} branch(es) selected`;
   };
 
-  const renderField = (label: string, value: string, key: string, type: 'select' | 'text' | 'date' = 'select', options: string[] = []) => (
+  const renderField = (label: string, value: string, key: string, type: 'select' | 'text' | 'date' = 'select', options: string[] = [], stateObj: any, setter: any, isAddForm = false) => (
     <div className="flex flex-col md:flex-row items-center gap-2 mb-4">
       <label className="md:w-[150px] text-right font-bold text-[#333] text-[13px] shrink-0">{label}:</label>
       <div className="flex-grow w-full md:w-auto relative">
@@ -165,11 +200,11 @@ export default function ScriptEvaluationEntry() {
             value={value}
             onChange={(e) => {
               const newVal = e.target.value;
-              setFormData(prev => {
+              setter((prev: any) => {
                 const nextData = { ...prev, [key]: newVal };
                 if (key === 'program') {
-                  nextData.course = '--All--';
-                  nextData.exam = '--All--';
+                  nextData.course = isAddForm ? '--Select Course--' : '--All--';
+                  nextData.exam = isAddForm ? '' : '--All--';
                 }
                 return nextData;
               });
@@ -182,9 +217,10 @@ export default function ScriptEvaluationEntry() {
           <input 
             type={type}
             value={value}
-            onChange={(e) => setFormData({...formData, [key]: e.target.value})}
-            placeholder={type === 'text' ? label : ''}
-            className="w-full border border-[#ccc] rounded-[4px] px-2 py-1.5 text-[13px] text-gray-600 focus:outline-none focus:border-[#66afe9] focus:shadow-[inset_0_1px_1px_rgba(0,0,0,.075),0_0_8px_rgba(102,175,233,.6)] hover:border-gray-400 bg-white"
+            onChange={(e) => setter({...stateObj, [key]: e.target.value})}
+            placeholder={isAddForm && type === 'text' && (key === 'exam' || key === 'teacher') ? (key === 'exam' ? '[Code] Name' : 'TPIN / Nick Name') : (type === 'text' ? label : '')}
+            className="w-full border border-[#ccc] rounded-[4px] px-2 py-1.5 text-[13px] text-gray-600 focus:outline-none focus:border-[#66afe9] focus:shadow-[inset_0_1px_1px_rgba(0,0,0,.075),0_0_8px_rgba(102,175,233,.6)] hover:border-gray-400 bg-white disabled:bg-[#eee]"
+            disabled={key === 'subject' && isAddForm}
           />
         )}
       </div>
@@ -248,10 +284,161 @@ export default function ScriptEvaluationEntry() {
     </div>
   );
 
+  const handleBranchRowAdd = () => {
+    setBranchesData([...branchesData, { branch: '--Select Branch--', scriptQuantity: '', remaining: '' }]);
+  };
+
+  const handleBranchRowRemove = (index: number) => {
+    setBranchesData(branchesData.filter((_, i) => i !== index));
+  };
+
+  const handleBranchRowChange = (index: number, field: string, value: string) => {
+    const updated = [...branchesData];
+    updated[index] = { ...updated[index], [field]: value };
+    setBranchesData(updated);
+  };
+
+  const calculateTotalScriptQuantity = () => {
+    return branchesData.reduce((sum, row) => sum + (parseInt(row.scriptQuantity) || 0), 0);
+  };
+
+  if (showAddForm) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-4 pt-4 px-2 font-['Segoe_UI',sans-serif]">
+        <div className="bg-white border border-[#002B49] rounded-sm shadow-md overflow-hidden">
+          <div className="bg-[#002B49] text-white px-4 py-2 flex justify-between items-center">
+            <span className="font-bold text-[13px]">Script Evaluation Entry</span>
+          </div>
+          
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12">
+              {renderField("Organization", addFormData.organization, 'organization', 'select', ['--Select Organization--', 'UDVASH', 'UNMESH', 'ONLINE CARE', 'UTTORON'], addFormData, setAddFormData, true)}
+              {renderField("Program", addFormData.program, 'program', 'select', ['--Select Program--', ...Object.keys(COURSES_BY_PROGRAM)], addFormData, setAddFormData, true)}
+              {renderField("Session", addFormData.session, 'session', 'select', ['--Select Session--', '2027', '2026', '2025', '2024', '2023', '2022', '2021', '2020'], addFormData, setAddFormData, true)}
+              {renderField("Course", addFormData.course, 'course', 'select', ['--Select Course--', ...getCourses(addFormData.program)], addFormData, setAddFormData, true)}
+              {renderField("Exam", addFormData.exam, 'exam', 'select', ['--Select Exam--', ...getExams(addFormData.program)], addFormData, setAddFormData, true)}
+              {renderField("Script Question Type", addFormData.scriptQuestionType, 'scriptQuestionType', 'select', ['--Select Script Question Type--', 'Normal', 'Creative'], addFormData, setAddFormData, true)}
+              {renderField("Evaluation Type", addFormData.evaluationType, 'evaluationType', 'select', ['--Select Evaluation Type--', 'Regular', 'Recheck', 'Top Student'], addFormData, setAddFormData, true)}
+              {renderField("Script Version", addFormData.scriptVersion, 'scriptVersion', 'select', ['--Select Script Version--', 'Bangla', 'English'], addFormData, setAddFormData, true)}
+              {renderField("Evaluation Date", addFormData.evaluationDate, 'evaluationDate', 'date', [], addFormData, setAddFormData, true)}
+              {renderField("Teacher", addFormData.teacher, 'teacher', 'text', [], addFormData, setAddFormData, true)}
+              <div className="col-span-1 md:col-span-2 md:w-1/2 md:pr-6">
+                <div className="flex flex-col md:flex-row items-center gap-2 mb-4 mt-2">
+                  <label className="md:w-[150px] text-right font-bold text-[#333] text-[13px] shrink-0">Subject:</label>
+                  <div className="flex-grow w-full md:w-auto">
+                     {getSubjectFromExam(addFormData.exam) ? (
+                        <label className="flex items-center gap-2 text-[13px] text-[#333] font-bold cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={addFormData.subject === getSubjectFromExam(addFormData.exam)}
+                            onChange={(e) => setAddFormData({...addFormData, subject: e.target.checked ? getSubjectFromExam(addFormData.exam) : ''})}
+                            className="w-3 h-3 border-gray-300"
+                          />
+                          {getSubjectFromExam(addFormData.exam)}
+                        </label>
+                     ) : (
+                       <span className="text-[13px] text-gray-500 italic">Select an Exam first</span>
+                     )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 border border-[#ddd] rounded-sm overflow-hidden">
+              <table className="w-full text-[13px]">
+                <thead className="bg-[#f0f0f0] border-b border-[#ddd]">
+                  <tr>
+                    <th className="py-2 px-2 text-center font-bold text-[#333] border-r border-[#ddd] w-[60px]">Serial</th>
+                    <th className="py-2 px-2 text-center font-bold text-[#333] border-r border-[#ddd]">Branch</th>
+                    <th className="py-2 px-2 text-center font-bold text-[#333] border-r border-[#ddd]">Script Quantity</th>
+                    <th className="py-2 px-2 text-center font-bold text-[#333] border-r border-[#ddd]">Remaining</th>
+                    <th className="py-2 px-2 text-center font-bold text-[#333] w-[40px]">
+                      <button 
+                        className="bg-[#428bca] hover:bg-[#3276b1] text-white w-6 h-6 rounded flex items-center justify-center font-bold text-lg"
+                        onClick={handleBranchRowAdd}
+                      >
+                        +
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {branchesData.map((row, index) => (
+                    <tr key={index} className="border-b border-[#ddd] last:border-0">
+                      <td className="py-1 px-2 text-center border-r border-[#ddd]">{index + 1}</td>
+                      <td className="py-1 px-2 border-r border-[#ddd]">
+                        <select 
+                          value={row.branch}
+                          onChange={(e) => handleBranchRowChange(index, 'branch', e.target.value)}
+                          className="w-full border border-[#ccc] rounded-[3px] px-2 py-1 text-[13px] text-gray-600 focus:outline-none focus:border-[#66afe9] bg-white"
+                        >
+                          <option>--Select Branch--</option>
+                          {ALL_BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                      </td>
+                      <td className="py-1 px-2 border-r border-[#ddd]">
+                        <input 
+                          type="number" 
+                          value={row.scriptQuantity}
+                          onChange={(e) => handleBranchRowChange(index, 'scriptQuantity', e.target.value)}
+                          className="w-full border border-[#ccc] rounded-[3px] px-2 py-1 text-[13px] text-gray-600 focus:outline-none focus:border-[#66afe9] bg-white text-right"
+                        />
+                      </td>
+                      <td className="py-1 px-2 border-r border-[#ddd] bg-[#f9f9f9]">
+                        <input 
+                          type="text" 
+                          value={row.remaining}
+                          readOnly
+                          className="w-full border border-[#ccc] rounded-[3px] px-2 py-1 text-[13px] text-gray-600 bg-[#eeeeee] focus:outline-none"
+                        />
+                      </td>
+                      <td className="py-1 px-2 text-center">
+                         <button 
+                          className="bg-[#f0ad4e] hover:bg-[#ec971f] text-white w-6 h-6 rounded flex items-center justify-center font-bold text-lg"
+                          onClick={() => handleBranchRowRemove(index)}
+                        >
+                          -
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-[#f9f9f9]">
+                    <td colSpan={2} className="py-2 px-2 text-center font-bold text-[#333] border-r border-[#ddd]">Total</td>
+                    <td className="py-2 px-2 border-r border-[#ddd] font-bold text-[#333]">{calculateTotalScriptQuantity()}</td>
+                    <td className="py-2 px-2 border-r border-[#ddd] font-bold text-[#333]">0</td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-center mt-6 gap-2">
+              <button 
+                className="bg-[#428bca] hover:bg-[#3276b1] text-white px-4 py-1.5 rounded-[4px] text-[13px] shadow-sm transition-all active:scale-95"
+                onClick={() => {}}
+              >
+                Save
+              </button>
+              <button 
+                className="bg-[#5bc0de] hover:bg-[#31b0d5] text-white px-4 py-1.5 rounded-[4px] text-[13px] shadow-sm transition-all active:scale-95"
+                onClick={() => setShowAddForm(false)}
+              >
+                Save & Exit
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-4 pt-4 px-2 font-['Segoe_UI',sans-serif]">
       <div className="flex justify-start mb-2">
-        <button className="bg-[#428bca] hover:bg-[#3276b1] text-white px-3 py-1.5 rounded-[4px] text-[13px] font-bold shadow-sm flex items-center gap-1">
+        <button 
+          onClick={() => setShowAddForm(true)}
+          className="bg-[#428bca] hover:bg-[#3276b1] text-white px-3 py-1.5 rounded-[4px] text-[13px] shadow-sm flex items-center gap-1"
+        >
           Add Script Evaluation Entry
         </button>
       </div>
@@ -264,24 +451,24 @@ export default function ScriptEvaluationEntry() {
         
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12">
-            {renderField("Organization", formData.organization, 'organization', 'select', ['--All--', 'UDVASH', 'UNMESH', 'ONLINE CARE', 'UTTORON'])}
-            {renderField("Program", formData.program, 'program', 'select', ['--All--', ...Object.keys(COURSES_BY_PROGRAM)])}
-            {renderField("Session", formData.session, 'session', 'select', ['--All--', '2027', '2026', '2025', '2024', '2023', '2022', '2021', '2020'])}
+            {renderField("Organization", formData.organization, 'organization', 'select', ['--All--', 'UDVASH', 'UNMESH', 'ONLINE CARE', 'UTTORON'], formData, setFormData)}
+            {renderField("Program", formData.program, 'program', 'select', ['--All--', ...Object.keys(COURSES_BY_PROGRAM)], formData, setFormData)}
+            {renderField("Session", formData.session, 'session', 'select', ['--All--', '2027', '2026', '2025', '2024', '2023', '2022', '2021', '2020'], formData, setFormData)}
             {renderBranchField()}
-            {renderField("Course", formData.course, 'course', 'select', ['--All--', ...getCourses()])}
-            {renderField("Exam", formData.exam, 'exam', 'select', ['--All--', ...getExams()])}
-            {renderField("Script Question Type", formData.scriptQuestionType, 'scriptQuestionType', 'select', ['--All--', 'Subjective', 'Objective'])}
-            {renderField("Evaluation Type", formData.evaluationType, 'evaluationType', 'select', ['--All--', 'Online', 'Offline'])}
-            {renderField("Script Version", formData.scriptVersion, 'scriptVersion', 'select', ['--All--', 'Version 1', 'Version 2'])}
-            {renderField("Teacher", formData.teacher, 'teacher', 'text')}
-            {renderField("Start Date", formData.startDate, 'startDate', 'date')}
-            {renderField("End Date", formData.endDate, 'endDate', 'date')}
-            {renderField("Keyword", formData.keyword, 'keyword', 'text')}
-            {renderField("No of Row(s)", formData.rows, 'rows', 'text')}
+            {renderField("Course", formData.course, 'course', 'select', ['--All--', ...getCourses(formData.program)], formData, setFormData)}
+            {renderField("Exam", formData.exam, 'exam', 'select', ['--All--', ...getExams(formData.program)], formData, setFormData)}
+            {renderField("Script Question Type", formData.scriptQuestionType, 'scriptQuestionType', 'select', ['--All--', 'Normal', 'Creative'], formData, setFormData)}
+            {renderField("Evaluation Type", formData.evaluationType, 'evaluationType', 'select', ['--All--', 'Regular', 'Recheck', 'Top Student'], formData, setFormData)}
+            {renderField("Script Version", formData.scriptVersion, 'scriptVersion', 'select', ['--All--', 'Bangla', 'English'], formData, setFormData)}
+            {renderField("Teacher", formData.teacher, 'teacher', 'text', [], formData, setFormData)}
+            {renderField("Start Date", formData.startDate, 'startDate', 'date', [], formData, setFormData)}
+            {renderField("End Date", formData.endDate, 'endDate', 'date', [], formData, setFormData)}
+            {renderField("Keyword", formData.keyword, 'keyword', 'text', [], formData, setFormData)}
+            {renderField("No of Row(s)", formData.rows, 'rows', 'text', [], formData, setFormData)}
           </div>
 
           <div className="flex justify-center mt-6">
-            <button className="bg-[#428bca] hover:bg-[#3276b1] text-white px-6 py-2 rounded-[4px] text-[14px] font-bold shadow-md transition-all active:scale-95">
+            <button className="bg-[#428bca] hover:bg-[#3276b1] text-white px-6 py-2 rounded-[4px] text-[14px] shadow-md transition-all active:scale-95">
               Submit
             </button>
           </div>
@@ -290,3 +477,4 @@ export default function ScriptEvaluationEntry() {
     </div>
   );
 }
+

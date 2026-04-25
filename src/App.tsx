@@ -22,6 +22,7 @@ import ManageMarksEntry from './components/ManageMarksEntry';
 import ScriptEvaluationEntry from './components/ScriptEvaluationEntry';
 import AdminsManagement from './components/AdminsManagement';
 import ManagementList from './components/ManagementList';
+import ScriptComparison from './components/ScriptComparison';
 
 // Types
 type View = 'Login' | 'Dashboard';
@@ -534,6 +535,8 @@ export default function App() {
                     <ManageMarksEntry />
                   ) : activeSubModule === 'Evaluation Entry' ? (
                     <ScriptEvaluationEntry />
+                  ) : activeSubModule === 'Script Comparison' ? (
+                    <ScriptComparison />
                   ) : activeSubModule === 'User Administration' ? (
                     <AdminsManagement />
                   ) : activeSubModule === 'Management List' ? (
