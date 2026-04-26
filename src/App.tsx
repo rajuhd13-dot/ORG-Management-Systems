@@ -17,6 +17,8 @@ import RegisterTeacherListForm from './components/RegisterTeacherListForm';
 import ExaminerSearchForm from './components/ExaminerSearchForm';
 import ExaminerSearchEditForm from './components/ExaminerSearchEditForm';
 import ImageUploadForm from './components/ImageUploadForm';
+import AssessmentAllowList from './components/AssessmentAllowList';
+import DataCollection from './components/DataCollection';
 import ManualMarksEntry from './components/ManualMarksEntry';
 import ManageMarksEntry from './components/ManageMarksEntry';
 import ScriptEvaluationEntry from './components/ScriptEvaluationEntry';
@@ -25,6 +27,8 @@ import ManagementList from './components/ManagementList';
 import ScriptComparison from './components/ScriptComparison';
 
 // Types
+import { fetchUsers } from './services/userService';
+
 type View = 'Login' | 'Dashboard';
 
 export default function App() {
@@ -32,6 +36,7 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [isTeacherMenuOpen, setIsTeacherMenuOpen] = useState(false);
   const [isMarksEntryMenuOpen, setIsMarksEntryMenuOpen] = useState(false);
   const [isScriptEvaluationMenuOpen, setIsScriptEvaluationMenuOpen] = useState(false);
@@ -42,7 +47,7 @@ export default function App() {
   const [isTPINVerified, setIsTPINVerified] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (email === 'raju.2348@unmesh.net' && password === 'Raju@2348') {
       setCurrentUser({ email, name: 'Md. Raju Ahammed', role: 'Admin', status: 'Active', permissions: ['Student', 'Exam', 'Teacher', 'Team', 'Administration'] });
@@ -51,29 +56,27 @@ export default function App() {
       return;
     }
     
-    // Check local storage for dynamic users
-    const storedUsers = localStorage.getItem('org_users');
-    if (storedUsers) {
-      try {
-        const users = JSON.parse(storedUsers);
-        const foundUser = users.find((u: any) => u.email === email && u.password === password);
-        if (foundUser) {
-          if (foundUser.status === 'Blocked') {
-            setError('Your account is blocked. Please contact an administrator.');
-            return;
-          }
-          if (!foundUser.permissions) foundUser.permissions = foundUser.role === 'Admin' ? ['Student', 'Exam', 'Teacher', 'Team', 'Administration'] : [];
-          setCurrentUser(foundUser);
-          setView('Dashboard');
-          setError('');
-          return;
-        }
-      } catch (err) {
-        console.error("Error parsing users", err);
+    setLoading(true);
+    setError('');
+    
+    const users = await fetchUsers();
+    
+    const foundUser = users.find((u: any) => u.email === email && u.password === password);
+    if (foundUser) {
+      if (foundUser.status === 'Blocked') {
+        setError('Your account is blocked. Please contact an administrator.');
+        setLoading(false);
+        return;
       }
+      if (!foundUser.permissions) foundUser.permissions = foundUser.role === 'Admin' ? ['Student', 'Exam', 'Teacher', 'Team', 'Administration'] : [];
+      setCurrentUser(foundUser);
+      setView('Dashboard');
+      setError('');
+    } else {
+      setError('Invalid email or password');
     }
-
-    setError('Invalid email or password');
+    
+    setLoading(false);
   };
 
   const handleLogout = () => {
@@ -139,9 +142,10 @@ export default function App() {
                   <div className="flex justify-center ml-24">
                     <button
                       type="submit"
-                      className="bg-[#55a1d5] hover:bg-[#4a8ebf] text-white px-5 py-1.5 rounded-sm text-[13px] font-medium transition-colors cursor-pointer shadow-sm"
+                      disabled={loading}
+                      className="bg-[#55a1d5] hover:bg-[#4a8ebf] text-white px-5 py-1.5 rounded-sm text-[13px] font-medium transition-colors cursor-pointer shadow-sm min-w-[80px] flex items-center justify-center disabled:opacity-75 disabled:cursor-not-allowed"
                     >
-                      Log in
+                      {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : 'Log in'}
                     </button>
                   </div>
                 </form>
@@ -465,6 +469,8 @@ export default function App() {
                                     'Examiner Search',
                                     'Examiner Profile Edit',
                                     'Image Upload',
+                                    'Assessment Allow List',
+                                    'Data Collection',
                                   ].filter(item => currentUser?.role === 'Admin' || currentUser?.permissions?.includes(item)).map((item) => (
                                     <button
                                       key={item}
@@ -529,6 +535,10 @@ export default function App() {
                     <ExaminerSearchEditForm />
                   ) : activeSubModule === 'Image Upload' ? (
                     <ImageUploadForm />
+                  ) : activeSubModule === 'Assessment Allow List' ? (
+                    <AssessmentAllowList />
+                  ) : activeSubModule === 'Data Collection' ? (
+                    <DataCollection />
                   ) : activeSubModule === 'Manual Marks Entry' ? (
                     <ManualMarksEntry />
                   ) : activeSubModule === 'Manage Marks Entry' ? (

@@ -3,7 +3,7 @@ import { Search, User, Phone, MapPin, GraduationCap, BookOpen, AlertCircle, Chec
 import { motion, AnimatePresence } from 'motion/react';
 
 // Configuration based on AppScript provide
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxye4gktctNZxpQsDxDwjwM_DEdR0rw998uGhcYBA1rzkVOjQtmO1diNdMSV_woQ8w/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7FLsOGJDUluBeLYm85VU-HyOM8yZ2pjcpzzX4Oz7N80IPFVAgL6uv788SZM4LfuilgA/exec';
 
 const COL = {
   NICK_NAME: 2, TPIN: 4, INST: 5, DEPT: 6, HSC_BATCH: 7, RM: 8,
@@ -121,7 +121,11 @@ export default function ExaminerSearchForm() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const response = await fetch(`${SCRIPT_URL}?action=sync`);
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'sync' })
+      });
       const text = await response.text();
       try {
         const result = JSON.parse(text);
@@ -131,7 +135,11 @@ export default function ExaminerSearchForm() {
           setSyncStatus('cached');
           setError(null);
         } else {
-          setError('Invalid data format received from the server.');
+          let msg = result.error || result.message || 'Invalid data format received from the server.';
+          if (msg.includes('Invalid action: sync')) {
+            msg = 'Script Error: Please copy the updated code from public/gas-script.js and deploy it to your Google Apps Script as a new version.';
+          }
+          setError(msg);
         }
       } catch (err) {
         console.error('JSON Parse error', err);
@@ -252,11 +260,15 @@ export default function ExaminerSearchForm() {
 
     // 2. Fallback to server search if not in local cache
     try {
-      const response = await fetch(`${SCRIPT_URL}?q=${encodeURIComponent(query.trim())}`);
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'search', q: query.trim() })
+      });
       const result = await response.json();
 
       if (result.ok) {
-        setData(result.data);
+        setData(mapRow(result.data));
       } else {
         setError(result.message || 'No examiner found.');
       }

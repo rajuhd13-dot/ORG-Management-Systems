@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Loader2 } from 'lucide-react';
+import { fetchUsers, saveUsers } from '../services/userService';
 
 export default function AdminsManagement() {
   const [users, setUsers] = useState<any[]>([]);
@@ -7,33 +8,37 @@ export default function AdminsManagement() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState('User');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const storedUsers = localStorage.getItem('org_users');
-    if (storedUsers) {
-      try {
-        setUsers(JSON.parse(storedUsers));
-      } catch (err) {
-        console.error(err);
-      }
-    }
+    const loadUsers = async () => {
+        const data = await fetchUsers();
+        setUsers(data);
+    };
+    loadUsers();
   }, []);
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password || !name) return;
 
+    setLoading(true);
     const newUser = { id: Date.now().toString(), name, email, password, role, status: 'Active', permissions: [] };
     const updatedUsers = [...users, newUser];
-    setUsers(updatedUsers);
-    localStorage.setItem('org_users', JSON.stringify(updatedUsers));
-
-    setEmail('');
-    setPassword('');
-    setName('');
-    setRole('User');
     
-    alert('User added successfully!');
+    const success = await saveUsers(updatedUsers);
+    
+    if (success) {
+      setUsers(updatedUsers);
+      setEmail('');
+      setPassword('');
+      setName('');
+      setRole('User');
+      alert('User added successfully!');
+    } else {
+      alert('Failed to save user.');
+    }
+    setLoading(false);
   };
 
   return (
@@ -100,10 +105,11 @@ export default function AdminsManagement() {
             
             <button
               type="submit"
-              className="mt-8 bg-[#002B49] hover:bg-[#001f35] text-white px-4 py-2.5 rounded-[4px] font-semibold text-[13px] flex items-center justify-center gap-2 w-full transition-colors shadow-sm"
+              disabled={loading}
+              className="mt-8 bg-[#002B49] hover:bg-[#001f35] text-white px-4 py-2.5 rounded-[4px] font-semibold text-[13px] flex items-center justify-center gap-2 w-full transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <UserPlus size={16} />
-              Add User
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+              {loading ? 'Adding User...' : 'Add User'}
             </button>
             <p className="text-[12px] text-gray-500 mt-3 text-center leading-relaxed">
               Added users initially have no access.<br/>Configure permissions from the Management List menu.

@@ -3,7 +3,7 @@ import { Search, Loader2, Save, X, RefreshCw, AlertCircle, CheckCircle2, Databas
 import { motion, AnimatePresence } from 'motion/react';
 import { GAS_CODE_V9_2 } from '../lib/gasScript';
 
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxye4gktctNZxpQsDxDwjwM_DEdR0rw998uGhcYBA1rzkVOjQtmO1diNdMSV_woQ8w/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7FLsOGJDUluBeLYm85VU-HyOM8yZ2pjcpzzX4Oz7N80IPFVAgL6uv788SZM4LfuilgA/exec';
 
 const AppScriptFixModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
   if (!isOpen) return null;
@@ -111,7 +111,11 @@ export default function ExaminerSearchEditForm() {
     setSyncing(true);
     setStatus({ type: null, message: '' });
     try {
-      const response = await fetch(`${SCRIPT_URL}?action=sync`);
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'sync' })
+      });
       const text = await response.text();
       try {
         const result = JSON.parse(text);
@@ -119,7 +123,11 @@ export default function ExaminerSearchEditForm() {
           setAllData(result.data);
           localStorage.setItem('examiner_sync_data', JSON.stringify(result.data));
         } else {
-          setStatus({ type: 'error', message: 'Invalid data format received from the server.' });
+          let msg = result.error || result.message || 'Invalid data format received from the server.';
+          if (msg.includes('Invalid action: sync')) {
+            msg = 'Script Error: Please copy the updated code from public/gas-script.js and deploy it to your Google Apps Script as a new version.';
+          }
+          setStatus({ type: 'error', message: msg });
         }
       } catch (err) {
         console.error('JSON Parse error', err);

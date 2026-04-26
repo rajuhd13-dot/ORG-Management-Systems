@@ -1,33 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Shield, ShieldOff, Ban, CheckCircle, Settings, X, UserSearch } from 'lucide-react';
+import { Trash2, Shield, ShieldOff, Ban, CheckCircle, Settings, X, UserSearch, Loader2 } from 'lucide-react';
+import { fetchUsers, saveUsers } from '../services/userService';
 
 const MODULES_DATA = [
   { module: 'Student', subItems: ['Student Info'] },
   { module: 'Exam', subItems: ['Marks Entry', 'Manual Marks Entry', 'Manage Marks Entry', 'Marks Recalculation', 'Allow Marks Upload', 'Marks Entry By XML', 'Marks Entry By XML (Word)', 'Marks Entry By XML (Academic Info)', 'Report', 'Online Script Evaluation', 'Script Evaluation', 'Evaluation Entry', 'Script Management', 'Script Receive', 'Receive Report', 'Script Comparison'] },
-  { module: 'Teacher', subItems: ['Teacher Profile', 'Add Teacher', 'Update Profile', 'Teacher List', 'Search Teacher', 'Register Teacher List', 'Active Teacher List', 'View Teacher Profile', 'Examiner Search', 'Examiner Profile Edit', 'Image Upload', 'Teacher Activity'] },
+  { module: 'Teacher', subItems: ['Teacher Profile', 'Add Teacher', 'Update Profile', 'Teacher List', 'Search Teacher', 'Register Teacher List', 'Active Teacher List', 'View Teacher Profile', 'Examiner Search', 'Examiner Profile Edit', 'Image Upload', 'Assessment Allow List', 'Data Collection', 'Teacher Activity'] },
   { module: 'Team', subItems: ['My Account', 'Apply For', 'Member Management'] },
   { module: 'Administration', subItems: ['Routine', 'User Administration', 'Management List'] }
 ];
 
 export default function ManagementList() {
   const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedUsers = localStorage.getItem('org_users');
-    if (storedUsers) {
-      try {
-        setUsers(JSON.parse(storedUsers));
-      } catch (err) {
-        console.error(err);
-      }
-    }
+    const loadUsers = async () => {
+        setLoading(true);
+        const data = await fetchUsers();
+        setUsers(data);
+        setLoading(false);
+    };
+    loadUsers();
   }, []);
+
+  const handleSave = async (updatedUsers: any[]) => {
+      setSaving(true);
+      const success = await saveUsers(updatedUsers);
+      if (success) {
+          setUsers(updatedUsers);
+      } else {
+          alert("Failed to save changes.");
+      }
+      setSaving(false);
+  };
 
   const handleDeleteUser = (id: string) => {
     const updatedUsers = users.filter((u) => u.id !== id);
-    setUsers(updatedUsers);
-    localStorage.setItem('org_users', JSON.stringify(updatedUsers));
+    handleSave(updatedUsers);
   };
 
   const handleToggleStatus = (id: string) => {
@@ -37,8 +49,7 @@ export default function ManagementList() {
       }
       return u;
     });
-    setUsers(updatedUsers);
-    localStorage.setItem('org_users', JSON.stringify(updatedUsers));
+    handleSave(updatedUsers);
   };
   
   const handleToggleRole = (id: string) => {
@@ -48,8 +59,7 @@ export default function ManagementList() {
       }
       return u;
     });
-    setUsers(updatedUsers);
-    localStorage.setItem('org_users', JSON.stringify(updatedUsers));
+    handleSave(updatedUsers);
   };
 
   const updatePermissionsForUser = (id: string, newPerms: string[]) => {
@@ -59,13 +69,21 @@ export default function ManagementList() {
       }
       return u;
     });
-    setUsers(updatedUsers);
-    localStorage.setItem('org_users', JSON.stringify(updatedUsers));
+    setUsers(updatedUsers); // Intentionally not calling handleSave immediately for fast fluid UI checklist, but wait, the modal needs a Save button!
   };
 
   const togglePermission = (perms: string[], module: string) => {
     return perms.includes(module) ? perms.filter(p => p !== module) : [...perms, module];
   };
+
+  if (loading) {
+      return (
+          <div className="flex justify-center items-center h-64 flex-col gap-3">
+              <Loader2 className="animate-spin text-blue-500" size={32} />
+              <p className="text-gray-500 font-medium">Loading Management List...</p>
+          </div>
+      );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pt-4 px-2 font-['Segoe_UI',sans-serif]">
@@ -251,10 +269,14 @@ export default function ManagementList() {
             
             <div className="px-5 py-3 border-t bg-gray-50 flex justify-end">
               <button
-                onClick={() => setEditingUserId(null)}
-                className="px-5 py-1.5 bg-[#002B49] text-white text-[13px] font-semibold rounded hover:bg-[#001f35] transition-colors shadow-sm"
+                onClick={() => {
+                  setEditingUserId(null);
+                  handleSave(users);
+                }}
+                disabled={saving}
+                className="px-5 py-1.5 bg-[#002B49] text-white text-[13px] font-semibold rounded hover:bg-[#001f35] transition-colors shadow-sm disabled:opacity-50"
               >
-                Done
+                {saving ? 'Saving...' : 'Done'}
               </button>
             </div>
           </div>

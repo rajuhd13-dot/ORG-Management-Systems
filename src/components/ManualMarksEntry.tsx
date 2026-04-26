@@ -258,7 +258,7 @@ export default function ManualMarksEntry() {
         });
 
         const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
+          model: "gemini-2.0-flash",
           contents: [
             {
               text: `Extract information from this mark sheet. Look for Roll Numbers/Registration Numbers and their corresponding Marks for subjects: ${getSubjects().join(', ')}. 
@@ -274,13 +274,15 @@ export default function ManualMarksEntry() {
           ],
         });
 
-        const text = response.text;
+        let text = response.text;
         if (text) {
           try {
+            // Clean markdown bold blocks if any
+            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
             const data = JSON.parse(text);
             allExtractedData.push(...data);
           } catch (err) {
-            console.error("Failed to parse AI response for file:", file.name, err);
+            console.error("Failed to parse AI response for file:", file.name, "Raw text:", text, err);
           }
         }
       }
