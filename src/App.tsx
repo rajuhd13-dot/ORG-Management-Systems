@@ -547,7 +547,7 @@ export default function App() {
               <div className="flex-grow flex flex-col overflow-hidden bg-white">
                 <main className="flex-grow p-8 overflow-y-auto">
                   {activeSubModule === 'Add Teacher' ? (
-                    <TeacherForm />
+                    <TeacherForm onBack={() => setActiveSubModule(null)} onSave={() => setActiveSubModule(null)} />
                   ) : activeSubModule === 'Update Profile' ? (
                     <div className="space-y-6">
                       <TeacherSearchByPinForm onVerify={() => setIsTPINVerified(true)} />
