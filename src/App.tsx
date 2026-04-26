@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogOut, Search, ChevronDown, Power, X } from 'lucide-react';
 import TeacherForm from './components/TeacherForm';
@@ -42,15 +42,45 @@ export default function App() {
   const [isScriptEvaluationMenuOpen, setIsScriptEvaluationMenuOpen] = useState(false);
   const [isScriptManagementMenuOpen, setIsScriptManagementMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
-  const [activeModule, setActiveModule] = useState<string | null>(null);
-  const [activeSubModule, setActiveSubModule] = useState<string | null>(null);
+  const [activeModule, setActiveModule] = useState<string | null>(localStorage.getItem('org_activeModule'));
+  const [activeSubModule, setActiveSubModule] = useState<string | null>(localStorage.getItem('org_activeSubModule'));
   const [isTPINVerified, setIsTPINVerified] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Persistence logic
+  useEffect(() => {
+    const savedUser = localStorage.getItem('org_user');
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        if (user) {
+          setCurrentUser(user);
+          setView('Dashboard');
+        }
+      } catch (e) {
+        console.error("Failed to restore session:", e);
+        localStorage.removeItem('org_user');
+      }
+    }
+  }, []);
+
+  // Persist navigation state
+  useEffect(() => {
+    if (activeModule) localStorage.setItem('org_activeModule', activeModule);
+    else localStorage.removeItem('org_activeModule');
+  }, [activeModule]);
+
+  useEffect(() => {
+    if (activeSubModule) localStorage.setItem('org_activeSubModule', activeSubModule);
+    else localStorage.removeItem('org_activeSubModule');
+  }, [activeSubModule]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (email === 'raju.2348@unmesh.net' && password === 'Raju@2348') {
-      setCurrentUser({ email, name: 'Md. Raju Ahammed', role: 'Admin', status: 'Active', permissions: ['Student', 'Exam', 'Teacher', 'Team', 'Administration'] });
+      const adminUser = { email, name: 'Md. Raju Ahammed', role: 'Admin', status: 'Active', permissions: ['Student', 'Exam', 'Teacher', 'Team', 'Administration'] };
+      setCurrentUser(adminUser);
+      localStorage.setItem('org_user', JSON.stringify(adminUser));
       setView('Dashboard');
       setError('');
       return;
@@ -70,6 +100,7 @@ export default function App() {
       }
       if (!foundUser.permissions) foundUser.permissions = foundUser.role === 'Admin' ? ['Student', 'Exam', 'Teacher', 'Team', 'Administration'] : [];
       setCurrentUser(foundUser);
+      localStorage.setItem('org_user', JSON.stringify(foundUser));
       setView('Dashboard');
       setError('');
     } else {
@@ -88,6 +119,9 @@ export default function App() {
     setIsUserDropdownOpen(false);
     setActiveModule(null);
     setCurrentUser(null);
+    localStorage.removeItem('org_user');
+    localStorage.removeItem('org_activeModule');
+    localStorage.removeItem('org_activeSubModule');
   };
 
   return (
