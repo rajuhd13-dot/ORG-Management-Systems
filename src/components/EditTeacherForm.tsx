@@ -2,11 +2,16 @@ import React from 'react';
 import { PlusCircle, Upload, Download, Trash2 } from 'lucide-react';
 
 export default function EditTeacherForm() {
+  const teacherPin = localStorage.getItem('editing_teacher_pin') || '';
+  const profileImages = JSON.parse(localStorage.getItem('teacher_profile_images') || '{}');
+  const profileImage = profileImages[teacherPin] || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&h=320&auto=format&fit=crop";
+
   return (
     <div className="bg-white text-[13px] text-[#333]">
       {/* Header */}
-      <div className="bg-[#002B49] text-white px-4 py-1.5 font-medium rounded-t-sm mb-6">
-        Edit Teacher Profile
+      <div className="bg-[#002B49] text-white px-4 py-1.5 font-medium rounded-t-sm mb-6 flex justify-between items-center">
+        <span>Edit Teacher Profile</span>
+        <span className="text-[11px] opacity-70">PIN: {teacherPin}</span>
       </div>
 
       <div className="space-y-8 pb-20">
@@ -43,8 +48,13 @@ export default function EditTeacherForm() {
             </div>
             
             <div className="w-48 flex flex-col items-center pt-2">
-              <div className="w-32 h-[160px] bg-[#f8f8f8] border border-[#ddd] overflow-hidden mb-2">
-                 <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&h=320&auto=format&fit=crop" alt="Teacher" className="w-full h-full object-cover" />
+              <div className="w-32 h-[160px] bg-[#f8f8f8] border border-[#ddd] overflow-hidden mb-2 shadow-inner">
+                 <img 
+                   src={profileImage} 
+                   alt="Teacher" 
+                   className="w-full h-full object-cover" 
+                   referrerPolicy="no-referrer"
+                 />
               </div>
               <div className="flex gap-3">
                 <button className="text-green-600 hover:text-green-800"><Upload size={18} /></button>

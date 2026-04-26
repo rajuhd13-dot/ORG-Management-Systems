@@ -40,13 +40,26 @@ export default function ImageUploadForm() {
     if (selectedFiles.length === 0) return;
     setStatus('uploading');
     
-    // Logic: In a real app, we would process the files here.
-    // For now, we simulate success.
-    console.log(`Uploading ${selectedFiles.length} files to teacher profile`);
+    // Get existing profile images mapping
+    const existingProfiles = JSON.parse(localStorage.getItem('teacher_profile_images') || '{}');
+    
+    // Update mapping with new images based on filename (T-PIN)
+    selectedFiles.forEach(file => {
+      // Extract T-PIN from filename (e.g., "2505.jpg" -> "2505")
+      const tpin = file.file.name.split('.')[0];
+      if (tpin) {
+        existingProfiles[tpin] = file.preview;
+      }
+    });
+    
+    // Save back to localStorage
+    localStorage.setItem('teacher_profile_images', JSON.stringify(existingProfiles));
+    
+    console.log(`Uploaded and assigned ${selectedFiles.length} images to teacher profiles`);
     
     setTimeout(() => {
       setStatus('success');
-    }, 2000);
+    }, 1500);
   };
 
   const handleReset = () => {
@@ -117,12 +130,15 @@ export default function ImageUploadForm() {
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 text-center text-white">
                           <p className="text-[10px] font-bold truncate w-full px-1">{file.file.name}</p>
+                          <div className="bg-blue-500 text-[9px] px-1.5 py-0.5 rounded-full mt-1 mb-1">
+                            T-PIN: {file.file.name.split('.')[0]}
+                          </div>
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
                               removeFile(file.id);
                             }}
-                            className="mt-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                            className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
                           >
                             <X size={14} />
                           </button>

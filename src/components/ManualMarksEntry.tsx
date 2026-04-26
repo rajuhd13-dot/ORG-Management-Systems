@@ -258,22 +258,20 @@ export default function ManualMarksEntry() {
         });
 
         const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: {
-            parts: [
-              {
-                text: `Extract information from this mark sheet. Look for Roll Numbers/Registration Numbers and their corresponding Marks for subjects: ${getSubjects().join(', ')}. 
-                Return ONLY valid JSON in this format: [{"roll": "12345", "English": "85", "Mathematics": "90", ...}]. 
-                If a subject mark is not found, leave it empty. If no data is found, return [].`,
+          model: "gemini-2.0-flash",
+          contents: [
+            {
+              text: `Extract information from this mark sheet. Look for Roll Numbers/Registration Numbers and their corresponding Marks for subjects: ${getSubjects().join(', ')}. 
+              Return ONLY valid JSON in this format: [{"roll": "12345", "English": "85", "Mathematics": "90", ...}]. 
+              If a subject mark is not found, leave it empty. If no data is found, return [].`,
+            },
+            {
+              inlineData: {
+                mimeType: file.type,
+                data: base64Data,
               },
-              {
-                inlineData: {
-                  mimeType: file.type,
-                  data: base64Data,
-                },
-              },
-            ],
-          },
+            },
+          ],
         });
 
         let text = response.text;

@@ -15,7 +15,10 @@ export default function TeacherSearchByPinForm({ onVerify, label = 'Teacher PIN'
       <form 
         onSubmit={(e) => {
           e.preventDefault();
-          onVerify();
+          if (value.trim()) {
+            localStorage.setItem('editing_teacher_pin', value.trim());
+            onVerify();
+          }
         }}
         className="py-10 flex flex-col items-center justify-center space-y-4"
       >

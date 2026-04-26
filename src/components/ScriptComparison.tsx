@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Search } from 'lucide-react';
+import { ChevronDown, Search, Download } from 'lucide-react';
 
 const COURSES_BY_PROGRAM: Record<string, string[]> = {
   "SSC Model Test": [
@@ -335,6 +335,73 @@ export default function ScriptComparison() {
     </div>
   );
 
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchPerformed, setSearchPerformed] = useState(false);
+
+  const handleSearch = () => {
+    const existingEvaluations = JSON.parse(localStorage.getItem('script_evaluations') || '[]');
+    
+    const filtered = existingEvaluations.filter((evalItem: any) => {
+      const matchOrg = formData.organization === 'Select Organization' || evalItem.organization === formData.organization;
+      const matchProg = formData.program === 'Select Program' || evalItem.program === formData.program;
+      const matchSession = formData.session === 'Select Session' || evalItem.session === formData.session;
+      const matchCourse = formData.course === 'Select Course' || evalItem.course === formData.course;
+      const matchExam = formData.exam === 'Select Exam' || evalItem.exam === formData.exam;
+      const matchBranch = formData.branch.includes(evalItem.branch);
+      
+      return matchOrg && matchProg && matchSession && matchCourse && matchExam && matchBranch;
+    });
+
+    // Group by branch
+    const branchSummary: Record<string, any> = {};
+    filtered.forEach((item: any) => {
+      if (!branchSummary[item.branch]) {
+        branchSummary[item.branch] = {
+          branch: item.branch,
+          receivedQuantity: 1000, // Mock received quantity for demo
+          evaluatedQuantity: 0,
+          details: []
+        };
+      }
+      branchSummary[item.branch].evaluatedQuantity += item.evaluatedQuantity;
+      // Extract exam code for display
+      const examCode = item.exam.match(/\[(.*?)\]/)?.[1] || 'N/A';
+      branchSummary[item.branch].details.push(`(${examCode}-${item.evaluatedQuantity})`);
+    });
+
+    setSearchResults(Object.values(branchSummary));
+    setSearchPerformed(true);
+  };
+
+  const handleExport = () => {
+    if (searchResults.length === 0) return;
+
+    // Create CSV content
+    const headers = ["Branch", "Received Quantity", "Evaluated Quantity", "Remaining Quantity"];
+    const rows = searchResults.map(res => [
+      res.branch,
+      res.receivedQuantity,
+      res.evaluatedQuantity,
+      res.receivedQuantity - res.evaluatedQuantity
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `script_comparison_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-4 pt-4 px-2 font-['Segoe_UI',sans-serif]">
       <div className="bg-white border text-sm border-[#002B49] rounded-sm shadow-md overflow-hidden">
@@ -358,13 +425,92 @@ export default function ScriptComparison() {
             {renderField("No of Row(s)", formData.rows, 'rows', 'text')}
           </div>
 
-          <div className="flex justify-center mt-6">
-            <button className="bg-[#428bca] hover:bg-[#3276b1] text-white px-6 py-1.5 rounded-[4px] text-[13px] shadow-sm transition-all active:scale-95">
-              Search
+          <div className="flex justify-center mt-6 gap-3">
+            <button 
+              onClick={handleSearch}
+              className="bg-[#428bca] hover:bg-[#3276b1] text-white px-6 py-1.5 rounded-[4px] text-[13px] shadow-sm transition-all active:scale-95 flex items-center gap-2"
+            >
+              <Search size={14} /> Search
             </button>
+            {searchPerformed && searchResults.length > 0 && (
+              <button 
+                onClick={handleExport}
+                className="bg-[#5cb85c] hover:bg-[#449d44] text-white px-6 py-1.5 rounded-[4px] text-[13px] shadow-sm transition-all active:scale-95 flex items-center gap-2"
+              >
+                <Download size={14} /> Export
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {searchPerformed && (
+        <div className="mt-6 border border-[#ddd] rounded-sm shadow-sm overflow-hidden bg-white">
+           <div className="bg-[#002B49] text-white px-4 py-2 flex justify-between items-center">
+            <span className="font-bold text-[13px]">Script Comparison Details</span>
+            <div className="bg-white/20 p-0.5 rounded cursor-pointer">
+              <ChevronDown size={14} className="text-white transform rotate-180" />
+            </div>
+          </div>
+          
+          <div className="p-4">
+             <div className="grid grid-cols-2 gap-0 mb-4 border border-[#ddd]">
+                <div className="grid grid-cols-2">
+                    <div className="bg-[#f9f9f9] border-r border-b px-3 py-2 font-bold text-right text-[12px]">Organization:</div>
+                    <div className="border-b px-3 py-2 text-[12px]">{formData.organization !== 'Select Organization' ? formData.organization : 'ALL'}</div>
+                    <div className="bg-[#f9f9f9] border-r px-3 py-2 font-bold text-right text-[12px]">Session:</div>
+                    <div className="px-3 py-2 text-[12px]">{formData.session !== 'Select Session' ? formData.session : 'ALL'}</div>
+                </div>
+                <div className="grid grid-cols-2 border-l border-[#ddd]">
+                    <div className="bg-[#f9f9f9] border-r border-b px-3 py-2 font-bold text-right text-[12px]">Program:</div>
+                    <div className="border-b px-3 py-2 text-[12px]">{formData.program !== 'Select Program' ? formData.program : 'ALL'}</div>
+                    <div className="bg-[#f9f9f9] border-r px-3 py-2 font-bold text-right text-[12px]">Branch:</div>
+                    <div className="px-3 py-2 text-[12px]">{formData.branch.length === ALL_BRANCHES.length ? 'All' : formData.branch.length + ' selected'}</div>
+                </div>
+             </div>
+
+             <div className="overflow-x-auto border border-[#ddd]">
+               <table className="w-full text-center border-collapse">
+                 <thead className="bg-[#fcfcfc] border-b border-[#ddd]">
+                   <tr className="text-[12px] font-bold text-[#333]">
+                     <th className="py-2 px-3 border-r">Branch</th>
+                     <th className="py-2 px-3 border-r">Received Quantity</th>
+                     <th className="py-2 px-3 border-r">Evaluated Quantity</th>
+                     <th className="py-2 px-3">Remaining Quantity</th>
+                   </tr>
+                 </thead>
+                 <tbody className="text-[12px]">
+                    {searchResults.length > 0 ? (
+                      searchResults.map((res: any, idx: number) => (
+                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#fcfcfc]'}>
+                          <td className="py-2 px-3 border-r border-t border-[#ddd] text-left pl-10">{res.branch}</td>
+                          <td className="py-2 px-3 border-r border-t border-[#ddd]">{res.receivedQuantity}</td>
+                          <td className="py-2 px-3 border-r border-t border-[#ddd]">
+                             {res.evaluatedQuantity} <span className="text-gray-500 text-[11px] block">{res.details.join(', ')}</span>
+                          </td>
+                          <td className="py-2 px-3 border-t border-[#ddd]">{res.receivedQuantity - res.evaluatedQuantity}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="py-10 text-gray-500 italic">No search results found</td>
+                      </tr>
+                    )}
+                 </tbody>
+               </table>
+             </div>
+             
+             <div className="flex justify-between items-center mt-4 text-[12px] text-gray-600">
+                <div>Showing 1 to {searchResults.length} of {searchResults.length} entries</div>
+                <div className="flex gap-2">
+                   <button className="px-3 py-1 border rounded disabled:opacity-50" disabled>Previous</button>
+                   <button className="px-3 py-1 border rounded bg-blue-50 text-blue-600">1</button>
+                   <button className="px-3 py-1 border rounded disabled:opacity-50" disabled>Next</button>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

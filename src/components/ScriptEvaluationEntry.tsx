@@ -29,6 +29,7 @@ const ALL_BRANCHES = [
 
 export default function ScriptEvaluationEntry() {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
     organization: '--All--',
@@ -56,6 +57,7 @@ export default function ScriptEvaluationEntry() {
     scriptQuestionType: '--Select Script Question Type--',
     evaluationType: '--Select Evaluation Type--',
     scriptVersion: '--Select Script Version--',
+    branch: [] as string[],
     evaluationDate: '2026-04-25',
     teacher: '',
     subject: '-- Select Subject --'
@@ -168,27 +170,30 @@ export default function ScriptEvaluationEntry() {
     return Array.from(new Set(allExams));
   };
 
+  const currentFormData = showAddForm ? addFormData : formData;
+  const setCurrentFormData = showAddForm ? setAddFormData : setFormData;
+
   const filteredBranches = ALL_BRANCHES.filter(b => b.toLowerCase().includes(branchSearch.toLowerCase()));
-  const allSelected = formData.branch.length === ALL_BRANCHES.length;
+  const allSelected = currentFormData.branch.length === ALL_BRANCHES.length;
   
   const handleBranchSelectAll = (checked: boolean) => {
-    setFormData(prev => ({ ...prev, branch: checked ? [...ALL_BRANCHES] : [] }));
+    setCurrentFormData((prev: any) => ({ ...prev, branch: checked ? [...ALL_BRANCHES] : [] }));
   };
 
   const handleBranchSelect = (branchName: string, checked: boolean) => {
-    setFormData(prev => ({
+    setCurrentFormData((prev: any) => ({
       ...prev,
       branch: checked 
         ? [...prev.branch, branchName] 
-        : prev.branch.filter(b => b !== branchName)
+        : prev.branch.filter((b: string) => b !== branchName)
     }));
   };
 
   const getBranchDisplayValue = () => {
-    if (formData.branch.length === 0) return 'All Branch';
-    if (formData.branch.length === ALL_BRANCHES.length) return 'All Branch';
-    if (formData.branch.length === 1) return formData.branch[0];
-    return `${formData.branch.length} branch(es) selected`;
+    if (currentFormData.branch.length === 0) return 'All Branch';
+    if (currentFormData.branch.length === ALL_BRANCHES.length) return 'All Branch';
+    if (currentFormData.branch.length === 1) return currentFormData.branch[0];
+    return `${currentFormData.branch.length} branch(es) selected`;
   };
 
   const renderField = (label: string, value: string, key: string, type: 'select' | 'text' | 'date' = 'select', options: string[] = [], stateObj: any, setter: any, isAddForm = false) => (
@@ -205,6 +210,12 @@ export default function ScriptEvaluationEntry() {
                 if (key === 'program') {
                   nextData.course = isAddForm ? '--Select Course--' : '--All--';
                   nextData.exam = isAddForm ? '' : '--All--';
+                }
+                if (key === 'exam' && isAddForm) {
+                  const subject = getSubjectFromExam(newVal);
+                  if (subject) {
+                    nextData.subject = subject;
+                  }
                 }
                 return nextData;
               });
@@ -267,7 +278,7 @@ export default function ScriptEvaluationEntry() {
                 <label key={branch} className="flex items-center px-4 py-1.5 hover:bg-[#f5f5f5] cursor-pointer">
                   <input 
                     type="checkbox" 
-                    checked={formData.branch.includes(branch)}
+                    checked={currentFormData.branch.includes(branch)}
                     onChange={(e) => handleBranchSelect(branch, e.target.checked)}
                     className="mr-2 rounded-sm text-blue-600 focus:ring-blue-500"
                   />
@@ -298,8 +309,63 @@ export default function ScriptEvaluationEntry() {
     setBranchesData(updated);
   };
 
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchPerformed, setSearchPerformed] = useState(false);
+
+  const handleMainSearch = () => {
+    const existingEvaluations = JSON.parse(localStorage.getItem('script_evaluations') || '[]');
+    
+    const filtered = existingEvaluations.filter((evalItem: any) => {
+      const matchOrg = formData.organization === '--All--' || evalItem.organization === formData.organization;
+      const matchProg = formData.program === '--All--' || evalItem.program === formData.program;
+      const matchSession = formData.session === '--All--' || evalItem.session === formData.session;
+      const matchCourse = formData.course === '--All--' || evalItem.course === formData.course;
+      const matchExam = formData.exam === '--All--' || evalItem.exam === formData.exam;
+      const matchBranch = formData.branch.length === 0 || formData.branch.includes(evalItem.branch);
+      
+      return matchOrg && matchProg && matchSession && matchCourse && matchExam && matchBranch;
+    });
+
+    setSearchResults(filtered);
+    setSearchPerformed(true);
+  };
+
   const calculateTotalScriptQuantity = () => {
     return branchesData.reduce((sum, row) => sum + (parseInt(row.scriptQuantity) || 0), 0);
+  };
+
+  const handleSave = () => {
+    // Collect data to save
+    const evaluationsToSave = branchesData
+      .filter(row => row.branch !== '--Select Branch--' && row.scriptQuantity)
+      .map(row => ({
+        organization: addFormData.organization,
+        program: addFormData.program,
+        session: addFormData.session,
+        course: addFormData.course,
+        exam: addFormData.exam,
+        branch: row.branch,
+        scriptQuantity: parseInt(row.scriptQuantity) || 0,
+        evaluatedQuantity: parseInt(row.scriptQuantity) || 0, // Assuming evaluated = entered quantity for now
+        timestamp: new Date().toISOString()
+      }));
+
+    if (evaluationsToSave.length > 0) {
+      const existingEvaluations = JSON.parse(localStorage.getItem('script_evaluations') || '[]');
+      const updatedEvaluations = [...existingEvaluations, ...evaluationsToSave];
+      localStorage.setItem('script_evaluations', JSON.stringify(updatedEvaluations));
+    }
+
+    // Show success message
+    setShowSuccess(true);
+    
+    // Clear only the branches table
+    setBranchesData([{ branch: '--Select Branch--', scriptQuantity: '', remaining: '' }]);
+
+    // Hide success message after 3 seconds
+    setTimeout(() => {
+      setShowSuccess(false);
+    }, 3000);
   };
 
   if (showAddForm) {
@@ -315,6 +381,7 @@ export default function ScriptEvaluationEntry() {
               {renderField("Organization", addFormData.organization, 'organization', 'select', ['--Select Organization--', 'UDVASH', 'UNMESH', 'ONLINE CARE', 'UTTORON'], addFormData, setAddFormData, true)}
               {renderField("Program", addFormData.program, 'program', 'select', ['--Select Program--', ...Object.keys(COURSES_BY_PROGRAM)], addFormData, setAddFormData, true)}
               {renderField("Session", addFormData.session, 'session', 'select', ['--Select Session--', '2027', '2026', '2025', '2024', '2023', '2022', '2021', '2020'], addFormData, setAddFormData, true)}
+              {renderBranchField()}
               {renderField("Course", addFormData.course, 'course', 'select', ['--Select Course--', ...getCourses(addFormData.program)], addFormData, setAddFormData, true)}
               {renderField("Exam", addFormData.exam, 'exam', 'select', ['--Select Exam--', ...getExams(addFormData.program)], addFormData, setAddFormData, true)}
               {renderField("Script Question Type", addFormData.scriptQuestionType, 'scriptQuestionType', 'select', ['--Select Script Question Type--', 'Normal', 'Creative'], addFormData, setAddFormData, true)}
@@ -373,7 +440,9 @@ export default function ScriptEvaluationEntry() {
                           className="w-full border border-[#ccc] rounded-[3px] px-2 py-1 text-[13px] text-gray-600 focus:outline-none focus:border-[#66afe9] bg-white"
                         >
                           <option>--Select Branch--</option>
-                          {ALL_BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                          {(addFormData.branch.length > 0 ? addFormData.branch : ALL_BRANCHES).map(b => (
+                            <option key={b} value={b}>{b}</option>
+                          ))}
                         </select>
                       </td>
                       <td className="py-1 px-2 border-r border-[#ddd]">
@@ -412,16 +481,24 @@ export default function ScriptEvaluationEntry() {
               </table>
             </div>
 
-            <div className="flex justify-center mt-6 gap-2">
+            <div className="flex justify-center mt-6 gap-2 items-center">
+              {showSuccess && (
+                <span className="text-green-600 font-bold text-[13px] mr-2">
+                  Save Success!
+                </span>
+              )}
               <button 
                 className="bg-[#428bca] hover:bg-[#3276b1] text-white px-4 py-1.5 rounded-[4px] text-[13px] shadow-sm transition-all active:scale-95"
-                onClick={() => {}}
+                onClick={handleSave}
               >
                 Save
               </button>
               <button 
                 className="bg-[#5bc0de] hover:bg-[#31b0d5] text-white px-4 py-1.5 rounded-[4px] text-[13px] shadow-sm transition-all active:scale-95"
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  handleSave();
+                  setTimeout(() => setShowAddForm(false), 500);
+                }}
               >
                 Save & Exit
               </button>
@@ -468,12 +545,67 @@ export default function ScriptEvaluationEntry() {
           </div>
 
           <div className="flex justify-center mt-6">
-            <button className="bg-[#428bca] hover:bg-[#3276b1] text-white px-6 py-2 rounded-[4px] text-[14px] shadow-md transition-all active:scale-95">
+            <button 
+              onClick={handleMainSearch}
+              className="bg-[#428bca] hover:bg-[#3276b1] text-white px-6 py-2 rounded-[4px] text-[14px] shadow-md transition-all active:scale-95"
+            >
               Submit
             </button>
           </div>
         </div>
       </div>
+
+      {searchPerformed && (
+        <div className="bg-white border border-[#ddd] rounded-sm shadow-md overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+           <div className="bg-[#002B49] text-white px-4 py-2 flex justify-between items-center text-[13px] font-bold">
+            Examiner Script Evaluation Entry List
+          </div>
+          <div className="p-4">
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px] border-collapse">
+                <thead className="bg-[#fcfcfc] border-b border-[#ddd]">
+                  <tr className="font-bold text-[#333]">
+                    <th className="py-2 px-2 border-r text-center w-[50px]">SL</th>
+                    <th className="py-2 px-2 border-r text-left">Organization</th>
+                    <th className="py-2 px-2 border-r text-left">Exam</th>
+                    <th className="py-2 px-2 border-r text-left">Branch</th>
+                    <th className="py-2 px-2 border-r text-right">Quantity</th>
+                    <th className="py-2 px-2 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {searchResults.length > 0 ? (
+                    searchResults.map((res: any, idx: number) => (
+                      <tr key={idx} className="border-b border-[#eee] hover:bg-[#f9f9f9]">
+                        <td className="py-2 px-2 border-r text-center">{idx + 1}</td>
+                        <td className="py-2 px-2 border-r">{res.organization}</td>
+                        <td className="py-2 px-2 border-r">{res.exam}</td>
+                        <td className="py-2 px-2 border-r">{res.branch}</td>
+                        <td className="py-2 px-2 border-r text-right">{res.scriptQuantity}</td>
+                        <td className="py-2 px-2 text-center">
+                          <button className="bg-blue-500 text-white px-2 py-0.5 rounded text-[10px] hover:bg-blue-600">View</button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-4 text-center text-gray-500 italic">No entries found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-between items-center mt-4 text-[12px] text-gray-600">
+                <div>Showing 1 to {searchResults.length} of {searchResults.length} entries</div>
+                <div className="flex gap-1">
+                   <button className="px-2 py-1 border rounded bg-white hover:bg-gray-50">Previous</button>
+                   <button className="px-3 py-1 border rounded bg-blue-600 text-white">1</button>
+                   <button className="px-2 py-1 border rounded bg-white hover:bg-gray-50">Next</button>
+                </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
